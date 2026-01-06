@@ -1,0 +1,222 @@
+
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Treinamento – Novos Colaboradores</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="logo.png">
+</head>
+<body class="theme-dark">
+  <!-- Barra superior -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">SULZER</div>
+      <div class="brand-text">
+        <h1>Treinamento</h1>
+        <p>Novos Colaboradores</p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label>
+          Início da visão
+          <input type="month" id="startMonth" />
+        </label>
+
+        <label>
+          Meses
+          <select id="monthsCount">
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+
+        <label>
+          Zoom (largura/semana)
+          <input type="range" id="zoomSlider" min="40" max="96" value="64" />
+        </label>
+
+        <label>
+          Snap
+          <select id="snapMode">
+            <option value="weeks" selected>Semanas</option>
+            <option value="days">Dias</option>
+          </select>
+        </label>
+
+        <label>
+          Altura da linha
+          <input type="range" id="rowHeightSlider" min="40" max="120" value="68" />
+          <span id="rowHeightValue">68 px</span>
+        </label>
+
+        <!-- Ícone Modo Noturno/Claro -->
+        <button id="themeToggleBtn" class="btn" title="Alternar tema (Claro/Noturno)" aria-pressed="true">🌙</button>
+
+        <!-- <button id="applyView" class="btn primary">Aplicar</button> -->
+      </div>
+
+      <div class="toolbar-group">
+        <button id="addTaskBtn" class="btn">Adicionar tarefa</button>
+        <button id="addMilestoneBtn" class="btn">Adicionar marco</button>
+        <button id="removeModeBtn" class="btn danger" title="Ativa modo remover: clique em qualquer item para apagar">Remover item</button>
+        <!-- <button id="resetDataBtn" class="btn danger" title="Apaga dados salvos e restaura o exemplo">Restaurar</button> -->
+      </div>
+    </div>
+  </header>
+
+    <p class="ia"><strong>Conheça o Gustave IA:</strong> você pode usar ele para ajudar em seus<em> estudos.</em> <a href="https://m365.cloud.microsoft:443/chat/?titleId=T_8995ca65-c0f6-c528-0000-d7a4a9671f4f&source=embedded-builder" target="_blank" class="gustave">Clique aqui</a></p>
+  <!-- Conteúdo principal -->
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="card">
+        <h3>Categorias</h3>
+        <ul id="categoryList" class="category-list"></ul>
+        <div class="add-cat-row">
+          <input id="newCategoryName" type="text" placeholder="Nova categoria..." />
+          <button id="addCategoryBtn" class="btn">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Opções de Exibição</h3>
+        <label class="switch">
+          <input type="checkbox" id="toggleTodayLine" checked>
+          <span>Mostrar linha do dia</span>
+        </label>
+        <!-- Agora: Listras alternadas é marcável -->
+        <label class="switch">
+          <input type="checkbox" id="toggleAltRows" checked>
+          <span>Listras alternadas nas linhas</span>
+        </label>
+      </div>
+    </aside>
+
+    <section class="board">
+      <!-- Cabeçalho de tempo -->
+      <div id="time-header" class="time-header"></div>
+
+      <!-- Grid quadriculado -->
+      <section id="gantt-grid" class="gantt-grid">
+        <div id="today-line" class="today-line" aria-hidden="true"></div>
+        <div id="grid-resizer" class="grid-resizer" title="Arraste para aumentar a altura"></div>
+      </section>
+    </section>
+  </main>
+
+  <!-- <footer class="app-footer">
+    <small>Arraste para mover; use as alças para redimensionar; duplo clique para renomear; modo remover para excluir; botão ↗ abre link da tarefa em nova aba. Persistência via localStorage.</small>
+  </footer> -->
+
+  <!-- Dialog: Adicionar tarefa -->
+  <dialog id="taskDialog">
+    <form method="dialog" id="taskForm" class="task-form">
+      <h3>Adicionar Tarefa</h3>
+      <label>
+        Categoria:
+        <select id="taskCategory"></select>
+      </label>
+      <label>
+        Nome:
+        <input type="text" id="taskLabel" required />
+      </label>
+      <div class="form-row">
+        <label>
+          Início:
+          <input type="date" id="taskStart" required />
+        </label>
+        <label>
+          Fim:
+          <input type="date" id="taskEnd" required />
+        </label>
+      </div>
+      <label>
+        Cor:
+        <select id="taskColor">
+          <option value="bar1">Amarelo</option>
+          <option value="bar2">Verde</option>
+          <option value="bar3">Laranja</option>
+          <option value="bar4">Azul</option>
+          <option value="bar5">Rosa</option>
+        </select>
+      </label>
+      <label>
+        Link (OneDrive/SharePoint)
+        <input type="url" id="taskLink" placeholder="https://..." />
+      </label>
+      <menu class="form-actions">
+        <button value="cancel" class="btn">Cancelar</button>
+        <button id="submitTask" value="default" class="btn primary">Salvar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Editar tarefa -->
+  <dialog id="editTaskDialog">
+    <form method="dialog" id="editTaskForm" class="task-form">
+      <h3>Editar Tarefa</h3>
+      <label>
+        Nome:
+        <input type="text" id="editTaskLabel" required />
+      </label>
+      <label>
+        Cor:
+        <select id="editTaskColor">
+          <option value="bar1">Amarelo</option>
+          <option value="bar2">Verde</option>
+          <option value="bar3">Laranja</option>
+          <option value="bar4">Azul</option>
+          <option value="bar5">Rosa</option>
+        </select>
+      </label>
+      <label>
+        Link (OneDrive/SharePoint)
+        <input type="url" id="editTaskLink" placeholder="https://..." />
+      </label>
+      <menu class="form-actions">
+        <button value="cancel" class="btn">Cancelar</button>
+        <button id="confirmEditTask" value="default" class="btn primary">Salvar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Adicionar marco -->
+  <dialog id="milestoneDialog">
+    <form method="dialog" id="milestoneForm" class="task-form">
+      <h3>Adicionar Marco</h3>
+      <label>
+        Categoria:
+        <select id="msCategory"></select>
+      </label>
+      <label>
+        Título:
+        <input type="text" id="msLabel" required />
+      </label>
+      <label>
+        Data:
+        <input type="date" id="msDate" required />
+      </label>
+      <label>
+        Cor:
+        <select id="msColor">
+          <option value="bar1">Amarelo</option>
+          <option value="bar2">Verde</option>
+          <option value="bar3">Laranja</option>
+          <option value="bar4">Azul</option>
+          <option value="bar5">Rosa</option>
+        </select>
+      </label>
+      <menu class="form-actions">
+        <button value="cancel" class="btn">Cancelar</button>
+        <button id="submitMilestone" value="default" class="btn primary">Salvar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
