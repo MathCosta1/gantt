@@ -1,12 +1,17 @@
 
 // ========= Persistência =========
-const STORAGE_KEY = "ganttData_v13"; // nova chave p/ evitar conflito com estados anteriores
+const STORAGE_KEY = "ganttData_v25"; // chave isolada
 
-// Limite máximo de altura TOTAL do grid (px)
-const MAX_TOTAL_HEIGHT_PX = 1600;
+// Limites & escala
+const MAX_TOTAL_HEIGHT_PX = 2400;
+const DEFAULT_GRID_SCALE  = 2;
+const MIN_INITIAL_VH      = 0.5; // mínimo de 50% da altura da tela
+const MS_DAY = 24 * 60 * 60 * 1000;
 
-// Fator de escala inicial do grid (2 = dobra a altura base na primeira render)
-const DEFAULT_GRID_SCALE = 2;
+// ========= Estado =========
+// Começa vazio (sem exemplo)
+let data = { categories: [] };
+let view = { startMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1), months: 12, extraH: 0 };
 
 function saveState() {
   localStorage.setItem(
@@ -21,10 +26,9 @@ function saveState() {
       ui: {
         cellW: getCellW(),
         rowH: getRowH(),
-        snapMode: snapModeSelect.value,
         showToday: toggleTodayLine.checked,
         altRows: toggleAltRows ? !!toggleAltRows.checked : true,
-        theme: currentTheme // "dark" | "light"
+        theme: currentTheme
       }
     })
   );
@@ -34,63 +38,29 @@ function loadState() {
   if (!raw) return null;
   try {
     const obj = JSON.parse(raw);
-    // dados
     if (obj?.data?.categories) data = obj.data;
-    // visão
     if (obj?.view?.startMonth) view.startMonth = new Date(obj.view.startMonth);
     if (obj?.view?.months) view.months = obj.view.months;
     view.extraH = obj?.view?.extraH || 0;
-    // UI
     if (obj?.ui?.cellW) setCellW(obj.ui.cellW);
     if (obj?.ui?.rowH) setRowH(obj.ui.rowH);
-    if (obj?.ui?.snapMode) snapModeSelect.value = obj.ui.snapMode;
     toggleTodayLine.checked = !!obj?.ui?.showToday;
-    if (typeof obj?.ui?.altRows === "boolean" && toggleAltRows) {
-      toggleAltRows.checked = obj.ui.altRows;
-    }
+    if (typeof obj?.ui?.altRows === "boolean" && toggleAltRows) toggleAltRows.checked = obj.ui.altRows;
     if (obj?.ui?.theme) setTheme(obj.ui.theme);
     return obj;
   } catch(e) { console.error("Erro ao ler storage:", e); return null; }
 }
-// function resetData() {
-//   localStorage.removeItem(STORAGE_KEY);
-//   data = JSON.parse(JSON.stringify(DEFAULT_DATA));
-//   view = { startMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1), months: 4, extraH: 0 };
-//   setCellW(64);
-//   setRowH(68);
-//   snapModeSelect.value = "weeks";
-//   toggleTodayLine.checked = true;
-//   if (toggleAltRows) toggleAltRows.checked = true; // padrão ligado
-//   setTheme("dark");
-//   syncViewInputs();
-//   render();
-// }
-
-// ========= Dados de exemplo =========
-const DEFAULT_DATA = {
-  categories: [
-    { title: "Introdução",          tasks: [ { id: "t_demo", label: "Exemplo", start: "2026-02-02", end: "2026-02-23", color: "bar1", link: "" } ], milestones: [] },
-    { title: "Bombas Centrífugas",  tasks: [], milestones: [] },
-    { title: "Selos Mecânicos",     tasks: [], milestones: [] },
-    { title: "Motores",             tasks: [], milestones: [] }
-  ]
-};
-
-let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
-let view = { startMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1), months: 4, extraH: 0 };
-
 const loaded = loadState();
 let firstRenderBootstrap = !loaded;
 
-// ========= Utilidades de tempo =========
-const MS_DAY = 24 * 60 * 60 * 1000;
+// ========= Utilidades =========
 const toDate = (s) => new Date(`${s}T00:00:00`);
 const fmt = (d) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
 function firstWeekStart(date){
   const d = new Date(date);
-  const weekday = (d.getDay() + 6) % 7; // 0=Seg … 6=Dom
+  const weekday = (d.getDay() + 6) % 7;
   d.setDate(d.getDate() - weekday);
   d.setHours(0,0,0,0);
   return d;
@@ -104,7 +74,12 @@ function nearestMonday(d){
   return (distPrev <= distNext) ? base : next;
 }
 
-// ========= Elementos / Estado UI =========
+function setCellW(px){ document.documentElement.style.setProperty('--cell-w', `${px}px`); }
+function getCellW(){ const v = getComputedStyle(document.documentElement).getPropertyValue('--cell-w'); return parseInt(v) || 64; }
+function setRowH(px){ document.documentElement.style.setProperty('--row-h', `${px}px`); }
+function getRowH(){ const v = getComputedStyle(document.documentElement).getPropertyValue('--row-h'); return parseInt(v) || 68; }
+
+// ========= Elementos/UI =========
 let removeMode = false;
 
 const themeToggleBtn   = document.getElementById("themeToggleBtn") || null;
@@ -115,13 +90,11 @@ const monthsCountSelect = document.getElementById("monthsCount");
 const zoomSlider        = document.getElementById("zoomSlider");
 const rowHeightSlider   = document.getElementById("rowHeightSlider");
 const rowHeightValue    = document.getElementById("rowHeightValue");
-const snapModeSelect    = document.getElementById("snapMode");
+
 const applyBtn          = document.getElementById("applyView");
 
 const addTaskBtn        = document.getElementById("addTaskBtn");
-const addMilestoneBtn   = document.getElementById("addMilestoneBtn");
 const removeModeBtn     = document.getElementById("removeModeBtn");
-const resetDataBtn      = document.getElementById("resetDataBtn");
 
 const timeHeader        = document.getElementById("time-header");
 const grid              = document.getElementById("gantt-grid");
@@ -146,34 +119,14 @@ const submitTaskBtn     = document.getElementById("submitTask");
 
 const editTaskDialog    = document.getElementById("editTaskDialog");
 const editTaskLabelInput= document.getElementById("editTaskLabel");
+const editTaskStartInput= document.getElementById("editTaskStart");
+const editTaskEndInput  = document.getElementById("editTaskEnd");
 const editTaskColorSel  = document.getElementById("editTaskColor");
 const editTaskLinkInput = document.getElementById("editTaskLink");
 const confirmEditTaskBtn= document.getElementById("confirmEditTask");
 let editingTaskId = null;
 
-const milestoneDialog   = document.getElementById("milestoneDialog");
-const msCategorySel     = document.getElementById("msCategory");
-const msLabelInput      = document.getElementById("msLabel");
-const msDateInput       = document.getElementById("msDate");
-const msColorSel        = document.getElementById("msColor");
-const submitMilestoneBtn= document.getElementById("submitMilestone");
-
-// ========= UI helpers =========
-function syncViewInputs(){
-  startMonthInput.value   = `${view.startMonth.getFullYear()}-${String(view.startMonth.getMonth()+1).padStart(2,"0")}`;
-  monthsCountSelect.value = String(view.months);
-  const currentRowH       = getRowH();
-  rowHeightSlider.value   = currentRowH;
-  rowHeightValue.textContent = `${currentRowH} px`;
-}
-syncViewInputs();
-
-function setCellW(px){ document.documentElement.style.setProperty('--cell-w', `${px}px`); }
-function getCellW(){ const v = getComputedStyle(document.documentElement).getPropertyValue('--cell-w'); return parseInt(v) || 64; }
-function setRowH(px){ document.documentElement.style.setProperty('--row-h', `${px}px`); }
-function getRowH(){ const v = getComputedStyle(document.documentElement).getPropertyValue('--row-h'); return parseInt(v) || 68; }
-
-/* Tema (tolerante a ausência do botão) */
+// ========= Tema / Inputs =========
 function setTheme(theme){
   currentTheme = theme === "light" ? "light" : "dark";
   document.body.classList.toggle("theme-light", currentTheme === "light");
@@ -190,8 +143,16 @@ function setTheme(theme){
     }
   }
 }
+function syncViewInputs(){
+  startMonthInput.value   = `${view.startMonth.getFullYear()}-${String(view.startMonth.getMonth()+1).padStart(2,"0")}`;
+  monthsCountSelect.value = String(view.months);
+  const currentRowH = getRowH();
+  rowHeightSlider.value = currentRowH;
+  rowHeightValue.textContent = `${currentRowH} px`;
+}
+syncViewInputs();
 
-/* Semanas por mês */
+/* Meses/Semanas por mês */
 function computeMonthsAndWeeks(startMonthDate, monthsCount){
   const months = [];
   for(let i=0; i<monthsCount; i++){
@@ -209,28 +170,78 @@ function computeMonthsAndWeeks(startMonthDate, monthsCount){
   return months;
 }
 
+/* ===== Linhas ↔ tarefas (flatten) ===== */
+function buildRowMap(){
+  const map = [];
+  data.categories.forEach((c, ci) => { (c.tasks || []).forEach((_, ti) => map.push({ ci, ti })); });
+  return map;
+}
+function totalRows(){ return buildRowMap().length; }
+function rowCenterTop(ri){
+  const rowH = getRowH();
+  const barH = 24;
+  const offset = Math.max(4, Math.round((rowH - barH)/2));
+  return (ri * rowH) + offset;
+}
+function moveTaskToRow(taskId, targetRow){
+  let map = buildRowMap();
+  const origRow = map.findIndex(m => (data.categories[m.ci].tasks[m.ti].id === taskId));
+  if (origRow < 0) return;
+  const orig = map[origRow];
+  const task = data.categories[orig.ci].tasks.splice(orig.ti, 1)[0];
+  map = buildRowMap();
+
+  if (map.length === 0){
+    if (!data.categories[orig.ci]) data.categories[orig.ci] = { title: "Categoria", color: null, tasks: [] };
+    if (!data.categories[orig.ci].tasks) data.categories[orig.ci].tasks = [];
+    data.categories[orig.ci].tasks.push(task);
+    saveState(); render(); return;
+  }
+  if (targetRow >= map.length){
+    const lastCi = map[map.length-1].ci;
+    data.categories[lastCi].tasks.push(task);
+  } else if (targetRow <= 0){
+    const dest = map[0];
+    data.categories[dest.ci].tasks.splice(dest.ti, 0, task);
+  } else {
+    const dest = map[targetRow];
+    data.categories[dest.ci].tasks.splice(dest.ti, 0, task);
+  }
+  saveState(); render();
+}
+
 // ========= Render principal =========
 function render(){
-  // Limpa
   timeHeader.innerHTML = "";
   grid.innerHTML = "";
   grid.appendChild(todayLine);
   grid.appendChild(gridResizer);
 
   // Painel de categorias
-  categoryList.innerHTML = data.categories
-    .map((c, idx) => `
-      <li>
-        <span>${c.title}</span>
-        <button class="cat-del-btn" data-ci="${idx}" title="Remover categoria">×</button>
-      </li>
-    `).join("");
+  categoryList.innerHTML = data.categories.length
+    ? data.categories.map((c, idx) => {
+        if (!c.color && (c.tasks && c.tasks.length)) c.color = c.tasks[0].color || "bar1";
+        const catColorHex = colorToHex(c.color || "bar1");
+        const options = (c.tasks || []).map(t => {
+          const optColor = colorToHex(t.color || "bar1");
+          return `<option value="${t.id}" style="color:${optColor}">● ${escapeHtml(t.label)}</option>`;
+        }).join("");
+        return `
+          <li>
+            <span class="category-title" style="color:${catColorHex}">${escapeHtml(c.title)}</span>
+            <select class="cat-task-select" data-ci="${idx}">
+              <option value="">— Clique —</option>
+              ${options}
+            </select>
+            <button class="cat-del-btn" data-ci="${idx}" title="Remover categoria">×</button>
+          </li>`;
+      }).join("")
+    : `<li style="color:var(--text-muted)">Sem categorias. Adicione uma ao lado.</li>`;
 
-  // Meses e semanas
+  // Cabeçalho de tempo
   const monthsInfo = computeMonthsAndWeeks(view.startMonth, view.months);
   const cellW = getCellW();
 
-  // Meses
   const monthRow = document.createElement("div");
   monthRow.className = "month-row";
   monthRow.style.gridTemplateColumns = monthsInfo.map(m => `${m.weeks.length * cellW}px`).join(" ");
@@ -242,7 +253,6 @@ function render(){
   });
   timeHeader.appendChild(monthRow);
 
-  // Semanas
   const weekRow = document.createElement("div");
   weekRow.className = "week-row";
   weekRow.style.gridTemplateColumns = monthsInfo.map(m => m.weeks.map(_ => `${cellW}px`).join(" ")).join(" ");
@@ -256,24 +266,23 @@ function render(){
   });
   timeHeader.appendChild(weekRow);
 
-  // Lista contínua de semanas (para minWidth)
+  // Semanas contínuas
   const allWeeks = [];
-  monthsInfo.forEach((m, mi) => {
-    m.weeks.forEach(w => {
-      const wEnd = new Date(w.getTime() + 7*MS_DAY - 1);
-      allWeeks.push({ start: new Date(w), end: wEnd, monthIndex: mi });
-    });
-  });
+  monthsInfo.forEach(m => m.weeks.forEach(w => {
+    const wEnd = new Date(w.getTime() + 7*MS_DAY - 1);
+    allWeeks.push({ start: new Date(w), end: wEnd });
+  }));
 
-  // ===== Altura inicial escalada (Opção A) =====
+  // Altura do grid (≥ 50vh na primeira render)
   const rowH = getRowH();
-  const baseHeight = data.categories.length * rowH + 24;
-
+  const rows = totalRows();
+  const baseHeight = rows * rowH + 24;
   if (firstRenderBootstrap) {
-    view.extraH = Math.max(0, (DEFAULT_GRID_SCALE - 1) * baseHeight);
+    const minNeeded = Math.max(0, (window.innerHeight * MIN_INITIAL_VH) - baseHeight);
+    const scaleExtra = Math.max(0, (DEFAULT_GRID_SCALE - 1) * baseHeight);
+    view.extraH = Math.max(scaleExtra, minNeeded);
     firstRenderBootstrap = false;
   }
-
   const desiredTotal = baseHeight + (view.extraH || 0);
   const totalHeight  = Math.min(desiredTotal, MAX_TOTAL_HEIGHT_PX);
   if (desiredTotal > MAX_TOTAL_HEIGHT_PX) {
@@ -281,106 +290,99 @@ function render(){
   }
   grid.style.height   = `${totalHeight}px`;
   grid.style.minWidth = `${allWeeks.length * cellW}px`;
-
-  // Listras alternadas (toggle)
   grid.classList.toggle("alt-rows", toggleAltRows ? toggleAltRows.checked : true);
 
-  // Fundo de linhas (a alternância é aplicada via CSS quando .alt-rows está presente)
-  data.categories.forEach((_, i) => {
+  // Fundo de linhas (uma por tarefa)
+  for (let i = 0; i < rows; i++){
     const bg = document.createElement("div");
     bg.className = "row-bg";
     bg.style.top = `${i*rowH}px`;
     grid.appendChild(bg);
-  });
+  }
 
-  // Mapas de tempo → pixel
+  // Tempo ↔ pixel
   const timelineStart = allWeeks[0].start.getTime();
   const timelineEnd   = allWeeks[allWeeks.length-1].end.getTime();
   const msPerPixel    = (7*MS_DAY) / cellW;
 
-  function xFromDateStr(dateStr){
-    const ms = toDate(dateStr).getTime();
-    const delta = ms - timelineStart;
-    return Math.max(0, Math.min((timelineEnd - timelineStart) / msPerPixel, delta / msPerPixel));
-  }
-  function dateStrFromX(x){
+  const xFromDateStr = (dateStr) => Math.max(0,
+    Math.min((timelineEnd - timelineStart)/msPerPixel, (toDate(dateStr).getTime() - timelineStart) / msPerPixel));
+  const dateStrFromX = (x) => {
     const ms = timelineStart + x * msPerPixel;
-    const d = new Date(ms);
-    d.setHours(0,0,0,0);
-    return (snapModeSelect.value === "weeks") ? ymd(nearestMonday(d)) : ymd(d);
-  }
+    const d = new Date(ms); d.setHours(0,0,0,0); return ymd(d);
+  };
 
-  // ===== Tarefas =====
-  data.categories.forEach((cat, rowIndex) => {
-    const baseY = rowIndex * rowH + 10;
-    let offset = 0;
-
-    cat.tasks.forEach((t) => {
-      const x = xFromDateStr(t.start);
+  // Render de barras
+  let currentRowIndex = 0;
+  data.categories.forEach((cat, ci) => {
+    (cat.tasks || []).forEach((t, ti) => {
+      const rowIndex = currentRowIndex++;
+      const x    = xFromDateStr(t.start);
       const xEnd = xFromDateStr(t.end);
-      const width = Math.max(14, xEnd - x);
+      const width= Math.max(14, xEnd - x);
 
       const bar = document.createElement("div");
       bar.className = "task-bar";
       bar.dataset.color    = t.color || "bar1";
       bar.dataset.id       = t.id;
       bar.dataset.rowIndex = String(rowIndex);
+      bar.dataset.ci       = String(ci);
+      bar.dataset.ti       = String(ti);
       bar.style.left  = `${x}px`;
-      bar.style.top   = `${baseY + offset}px`;
+      bar.style.top   = `${rowCenterTop(rowIndex)}px`;
       bar.style.width = `${width}px`;
       bar.title = `${t.label} • ${fmt(toDate(t.start))} → ${fmt(toDate(t.end))}`;
 
-      const leftHandle  = document.createElement("div");
-      leftHandle.className = "bar-handle left"; leftHandle.dataset.role = "resize-left";
-      const labelSpan   = document.createElement("span");
-      labelSpan.className = "bar-label"; labelSpan.textContent = t.label;
-      const rightHandle = document.createElement("div");
-      rightHandle.className = "bar-handle right"; rightHandle.dataset.role = "resize-right";
+      const labelSpan = document.createElement("span");
+      labelSpan.className = "bar-label";
+      labelSpan.textContent = t.label;
 
-      // Botão de link ↗
       const linkBtn = document.createElement("a");
       linkBtn.className = "bar-link";
-      if (t.link && t.link.trim()) {
-        linkBtn.href   = t.link.trim();
-        linkBtn.target = "_blank";
-        linkBtn.rel    = "noopener noreferrer";
-        linkBtn.title  = "Abrir link";
-      } else {
-        linkBtn.classList.add("disabled");
-        linkBtn.title = "Sem link";
-        linkBtn.href  = "javascript:void(0)";
-      }
+      const link = (t.link || "").trim();
+      if (link) {
+        linkBtn.href = link; linkBtn.target = "_blank"; linkBtn.rel = "noopener noreferrer"; linkBtn.title = "Abrir link";
+      } else { linkBtn.classList.add("disabled"); linkBtn.title = "Sem link"; linkBtn.href = "javascript:void(0)"; }
       linkBtn.addEventListener("click", (e) => e.stopPropagation());
 
-      bar.appendChild(leftHandle);
       bar.appendChild(labelSpan);
-      bar.appendChild(rightHandle);
       bar.appendChild(linkBtn);
-
       grid.appendChild(bar);
 
-      // Clique simples na barra: abrir link (se existir)
+      // Hover nas bordas
+      const EDGE = 14;
+      const edgeRole = (ev) => {
+        const rect = bar.getBoundingClientRect();
+        const px = ev.clientX - rect.left;
+        if (px <= EDGE) return "resize-left";
+        if (px >= rect.width - EDGE) return "resize-right";
+        return "drag";
+      };
+      const updateHoverCursor = (ev) => {
+        const role = edgeRole(ev);
+        bar.style.cursor = (role === "drag") ? "grab" : "ew-resize";
+        bar.classList.toggle("resize-edge-left",  role === "resize-left");
+        bar.classList.toggle("resize-edge-right", role === "resize-right");
+      };
+      bar.addEventListener("mousemove", updateHoverCursor);
+      bar.addEventListener("mouseleave", () => {
+        bar.style.cursor = "default";
+        bar.classList.remove("resize-edge-left", "resize-edge-right");
+      });
+
+      // Clique simples (link)
       let clickTimer = null;
       let downPos = null;
-
       bar.addEventListener("mousedown", (e) => { downPos = { x: e.clientX, y: e.clientY }; });
-
       bar.addEventListener("click", (e) => {
-        if (removeMode) return;
-        if (e.target.closest(".bar-handle") || e.target.closest(".bar-link")) return;
+        if (removeMode || e.target.closest(".bar-link")) return;
         const url = (t.link || "").trim();
         if (!url) return;
-
         const upPos = { x: e.clientX, y: e.clientY };
         const moved = downPos ? (Math.abs(upPos.x - downPos.x) > 3 || Math.abs(upPos.y - downPos.y) > 3) : false;
         if (moved) { downPos = null; return; }
-
         if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
-
-        clickTimer = setTimeout(() => {
-          window.open(url, "_blank", "noopener,noreferrer");
-          clickTimer = null;
-        }, 220);
+        clickTimer = setTimeout(() => { window.open(url, "_blank", "noopener,noreferrer"); clickTimer = null; }, 220);
       });
 
       // Duplo clique: editar
@@ -389,9 +391,11 @@ function render(){
         if (removeMode) return;
         editingTaskId = t.id;
         editTaskLabelInput.value = t.label;
+        editTaskStartInput.value = t.start;
+        editTaskEndInput.value   = t.end;
         editTaskColorSel.value   = t.color || "bar1";
         editTaskLinkInput.value  = t.link || "";
-        editTaskDialog.showModal();
+        openDialog(editTaskDialog);
       });
 
       // Tooltip
@@ -409,114 +413,112 @@ function render(){
       });
       bar.addEventListener("mouseleave", () => { if(bar._tip){ bar._tip.remove(); bar._tip = null; } });
 
-      // Drag da barra
-      let drag = null;
-      function onBarMouseDown(e){
-        const role = e.target.dataset.role || "drag";
-        if(removeMode){
+      // Drag vs Resize
+      let dragState = null;
+
+      bar.addEventListener("mousedown", (e) => {
+        if (removeMode){
           e.preventDefault();
           if(confirm(`Remover tarefa "${t.label}"?`)){ deleteTaskById(t.id); }
           return;
         }
+        const role = edgeRole(e);
         if (e.detail === 2) return;
-        if (role !== "drag") return;
 
-        drag = {
-          role: "drag",
+        dragState = {
+          role,
           startX: e.clientX, startY: e.clientY,
           origLeft: parseFloat(bar.style.left),
           origTop:  parseFloat(bar.style.top),
           origWidth:parseFloat(bar.style.width),
           id: t.id
         };
-        document.addEventListener("mousemove", onDocMouseMove);
-        document.addEventListener("mouseup",   onDocMouseUp);
-      }
-      function onDocMouseMove(e){
-        if(!drag) return;
-        const dx = e.clientX - drag.startX;
-        const dy = e.clientY - drag.startY;
 
-        let newLeft = drag.origLeft + dx;
-        let newTop  = drag.origTop  + dy;
-        newLeft = Math.max(0, Math.min(newLeft, grid.scrollWidth - drag.origWidth));
-        const maxTop = data.categories.length * rowH - (rowH - 10);
-        newTop  = Math.max(6, Math.min(newTop, maxTop));
+        if (role === "drag"){
+          document.addEventListener("mousemove", onDragMove);
+          document.addEventListener("mouseup",   onDragUp);
+        } else {
+          document.addEventListener("mousemove", onResizeMove);
+          document.addEventListener("mouseup",   onResizeUp);
+        }
+      });
+
+      function onDragMove(e){
+        if(!dragState) return;
+        const dx = e.clientX - dragState.startX;
+        const dy = e.clientY - dragState.startY;
+
+        let newLeft = dragState.origLeft + dx;
+        let newTop  = dragState.origTop  + dy;
+
+        newLeft = Math.max(0, Math.min(newLeft, grid.scrollWidth - dragState.origWidth));
+
+        const gridRect = grid.getBoundingClientRect();
+        const centerY = (bar.getBoundingClientRect().top - gridRect.top) + (bar.offsetHeight/2) + grid.scrollTop;
+        let targetRow = Math.max(0, Math.min(totalRows()-1, Math.floor(centerY / getRowH())));
+
+        bar.style.cursor = "grabbing";
+
+        const snapTop = rowCenterTop(targetRow);
         bar.style.left = `${newLeft}px`;
-        bar.style.top  = `${newTop}px`;
+        bar.style.top  = `${snapTop}px`;
+        bar.dataset.targetRow = String(targetRow);
 
-        const gr = grid.getBoundingClientRect();
+        // auto-scroll
+        const gr = gridRect;
         if(e.clientX > gr.right - 30) grid.scrollLeft += 20;
         if(e.clientX < gr.left  + 30) grid.scrollLeft -= 20;
         if(e.clientY > gr.bottom- 30) grid.scrollTop  += 20;
         if(e.clientY < gr.top   + 30) grid.scrollTop  -= 20;
       }
-      function onDocMouseUp(){
-        if(!drag) return;
-        document.removeEventListener("mousemove", onDocMouseMove);
-        document.removeEventListener("mouseup",   onDocMouseUp);
+
+      function onDragUp(){
+        if(!dragState) return;
+        document.removeEventListener("mousemove", onDragMove);
+        document.removeEventListener("mouseup",   onDragUp);
 
         const newLeft  = parseFloat(bar.style.left);
-        const newTop   = parseFloat(bar.style.top);
         const newWidth = parseFloat(bar.style.width);
         const newStart = dateStrFromX(newLeft);
         const newEnd   = dateStrFromX(newLeft + newWidth);
 
-        const centerY     = newTop + (bar.offsetHeight/2);
-        const newRowIndex = Math.max(0, Math.min(data.categories.length-1, Math.floor(centerY / rowH)));
-        const old = findTaskById(drag.id);
+        updateTaskDates(dragState.id, newStart, newEnd);
 
-        updateTaskDates(drag.id, newStart, newEnd);
-        if(old && old.ci !== newRowIndex) moveTaskToCategory(drag.id, newRowIndex);
+        const targetRow = parseInt(bar.dataset.targetRow ?? bar.dataset.rowIndex, 10);
+        moveTaskToRow(dragState.id, targetRow);
 
-        drag = null;
+        dragState = null;
       }
-      bar.addEventListener("mousedown", onBarMouseDown);
 
-      // Alças de resize
-      function onHandlePointerDown(e){
-        e.preventDefault();
-        const role = e.target.dataset.role;
-        let dragH = {
-          role,
-          startX: e.clientX,
-          origLeft:  parseFloat(bar.style.left),
-          origWidth: parseFloat(bar.style.width),
-          id: t.id
-        };
-        function onMove(ev){
-          const dx = ev.clientX - dragH.startX;
-          if(dragH.role === "resize-left"){
-            let newLeft  = dragH.origLeft + dx;
-            let newWidth = dragH.origWidth - dx;
-            if(newWidth < 14){ newWidth = 14; newLeft = dragH.origLeft + dragH.origWidth - 14; }
-            if(newLeft < 0){  newLeft = 0;  newWidth = dragH.origLeft + dragH.origWidth; }
-            bar.style.left  = `${newLeft}px`;
-            bar.style.width = `${newWidth}px`;
-          } else if(dragH.role === "resize-right"){
-            let newWidth = dragH.origWidth + dx;
-            if(newWidth < 14) newWidth = 14;
-            const maxWidth = grid.scrollWidth - dragH.origLeft;
-            if(newWidth > maxWidth) newWidth = maxWidth;
-            bar.style.width = `${newWidth}px`;
-          }
+      function onResizeMove(e){
+        if(!dragState) return;
+        const dx = e.clientX - dragState.startX;
+        if(dragState.role === "resize-left"){
+          let newLeft  = dragState.origLeft + dx;
+          let newWidth = dragState.origWidth - dx;
+          if(newWidth < 14){ newWidth = 14; newLeft = dragState.origLeft + dragState.origWidth - 14; }
+          if(newLeft < 0){  newLeft = 0;  newWidth = dragState.origLeft + dragState.origWidth; }
+          bar.style.left  = `${newLeft}px`;
+          bar.style.width = `${newWidth}px`;
+        } else {
+          let newWidth = dragState.origWidth + dx;
+          if(newWidth < 14) newWidth = 14;
+          const maxWidth = grid.scrollWidth - dragState.origLeft;
+          if(newWidth > maxWidth) newWidth = maxWidth;
+          bar.style.width = `${newWidth}px`;
         }
-        function onUp(){
-          document.removeEventListener("pointermove", onMove);
-          document.removeEventListener("pointerup",   onUp);
-          const newLeft  = parseFloat(bar.style.left);
-          const newWidth = parseFloat(bar.style.width);
-          const newStart = dateStrFromX(newLeft);
-          const newEnd   = dateStrFromX(newLeft + newWidth);
-          updateTaskDates(dragH.id, newStart, newEnd);
-        }
-        document.addEventListener("pointermove", onMove);
-        document.addEventListener("pointerup",   onUp);
       }
-      leftHandle.addEventListener("pointerdown", onHandlePointerDown);
-      rightHandle.addEventListener("pointerdown", onHandlePointerDown);
-
-      offset += 28;
+      function onResizeUp(){
+        if(!dragState) return;
+        document.removeEventListener("mousemove", onResizeMove);
+        document.removeEventListener("mouseup",   onResizeUp);
+        const newLeft  = parseFloat(bar.style.left);
+        const newWidth = parseFloat(bar.style.width);
+        const newStart = dateStrFromX(newLeft);
+        const newEnd   = dateStrFromX(newLeft + newWidth);
+        updateTaskDates(dragState.id, newStart, newEnd);
+        dragState = null;
+      }
     });
   });
 
@@ -527,19 +529,18 @@ function render(){
   const todayX = (nearestMonday(today).getTime() - firstWeek.getTime()) / ((7*MS_DAY)/getCellW());
   todayLine.style.left = `${todayX}px`;
 
-  // Preenche selects de categoria
-  const options = data.categories.map((c, idx) => `<option value="${idx}">${c.title}</option>`).join("");
+  // Select de categoria (Adicionar tarefa)
+  const options = data.categories.map((c, idx) => `<option value="${idx}">${escapeHtml(c.title)}</option>`).join("");
   taskCategorySel.innerHTML = options;
-  msCategorySel.innerHTML   = options;
 
   saveState();
 }
 
-// ========= Auxiliares de dados =========
+// ========= Auxiliares =========
 function findTaskById(taskId){
   for(let ci=0; ci<data.categories.length; ci++){
     const cat = data.categories[ci];
-    for(let ti=0; ti<cat.tasks.length; ti++){
+    for(let ti=0; ti<(cat.tasks||[]).length; ti++){
       if(cat.tasks[ti].id === taskId) return { ci, ti, task: cat.tasks[ti] };
     }
   }
@@ -553,44 +554,16 @@ function updateTaskDates(taskId, startStr, endStr){
   x.task.start = startStr; x.task.end = endStr;
   saveState(); render();
 }
-function moveTaskToCategory(taskId, newCi){
-  const x = findTaskById(taskId);
-  if(!x) return;
-  const task = x.task;
-  data.categories[x.ci].tasks.splice(x.ti, 1);
-  data.categories[newCi].tasks.push(task);
-  saveState(); render();
-}
-function moveMilestone(msId, newCi, newDate){
-  let found = null;
-  for(let ci=0; ci<data.categories.length; ci++){
-    const arr = data.categories[ci].milestones || [];
-    for(let mi=0; mi<arr.length; mi++){
-      if(arr[mi].id === msId){ found = { ci, mi, ms: arr[mi] }; break; }
-    }
-    if(found) break;
-  }
-  if(!found) return;
-  const m = found.ms;
-  if(newDate) m.date = newDate;
-  if(found.ci !== newCi){
-    data.categories[found.ci].milestones.splice(found.mi, 1);
-    if(!data.categories[newCi].milestones) data.categories[newCi].milestones = [];
-    data.categories[newCi].milestones.push(m);
-  }
-  saveState(); render();
-}
 function addNewTask({categoryIndex, label, start, end, color, link}){
+  if (Number.isNaN(categoryIndex) || categoryIndex < 0 || categoryIndex >= data.categories.length){
+    alert("Selecione uma categoria válida para adicionar a tarefa.");
+    return;
+  }
   const id = "t" + Math.random().toString(36).slice(2, 9);
   const cat = data.categories[categoryIndex];
+  if(!cat.tasks) cat.tasks = [];
   cat.tasks.push({ id, label, start, end, color, link: link || "" });
-  saveState(); render();
-}
-function addNewMilestone({categoryIndex, label, date, color}){
-  const id = "m" + Math.random().toString(36).slice(2, 9);
-  const cat = data.categories[categoryIndex];
-  if(!cat.milestones) cat.milestones = [];
-  cat.milestones.push({ id, label, date, color });
+  if (!cat.color) cat.color = color || "bar1";
   saveState(); render();
 }
 function deleteTaskById(taskId){
@@ -599,27 +572,13 @@ function deleteTaskById(taskId){
   data.categories[x.ci].tasks.splice(x.ti, 1);
   saveState(); render();
 }
-function deleteMilestoneById(msId){
-  for(let ci=0; ci<data.categories.length; ci++){
-    const arr = data.categories[ci].milestones || [];
-    const idx = arr.findIndex(m => m.id === msId);
-    if(idx >= 0){
-      arr.splice(idx, 1);
-      saveState(); render();
-      return;
-    }
-  }
-}
 function removeCategory(ci){
   if (ci < 0 || ci >= data.categories.length) return;
   data.categories.splice(ci, 1);
-  if (data.categories.length === 0) {
-    data.categories.push({ title: "Categoria", tasks: [], milestones: [] });
-  }
   saveState(); render();
 }
 
-// ========= Interações =========
+// ========= Ligações de eventos =========
 startMonthInput.addEventListener("change", () => {
   const [y, m] = startMonthInput.value.split("-").map(Number);
   view.startMonth = new Date(y, m-1, 1);
@@ -629,11 +588,10 @@ monthsCountSelect.addEventListener("change", () => {
   view.months = parseInt(monthsCountSelect.value, 10);
   render();
 });
-// applyBtn.addEventListener("click", () => { render(); });
+applyBtn.addEventListener("click", () => { render(); });
 
-snapModeSelect.addEventListener("change", () => { render(); });
 toggleTodayLine.addEventListener("change", () => { render(); });
-if (toggleAltRows) toggleAltRows.addEventListener("change", () => { render(); });
+toggleAltRows.addEventListener("change", () => { render(); });
 
 // Sliders
 zoomSlider.addEventListener("input", () => { setCellW(parseInt(zoomSlider.value,10)); render(); });
@@ -645,7 +603,7 @@ rowHeightSlider.addEventListener("input", () => {
   saveState();
 });
 
-// Tema (se existir o botão)
+// Tema
 if (themeToggleBtn) {
   themeToggleBtn.addEventListener("click", () => {
     setTheme(currentTheme === "light" ? "dark" : "light");
@@ -653,18 +611,77 @@ if (themeToggleBtn) {
   });
 }
 
-// Adicionar TAREFA (com link)
-addTaskBtn.addEventListener("click", () => {
+// ===== Categoria: listeners blindados com DOMContentLoaded =====
+function addCategory(){
+  const nameInput = document.getElementById("newCategoryName");
+  const name = (nameInput?.value || "").trim();
+  if (!name) {
+    alert("Digite um nome para a categoria.");
+    nameInput?.focus();
+    return;
+  }
+  if (!Array.isArray(data.categories)) data.categories = [];
+  const exists = data.categories.some(c => (c?.title || "").toLowerCase() === name.toLowerCase());
+  if (exists) {
+    alert("Já existe uma categoria com esse nome.");
+    nameInput?.focus();
+    return;
+  }
+  data.categories.push({ title: name, color: null, tasks: [] });
+  nameInput.value = "";
+  saveState();
+  render();
+}
+
+function wireCategoryControls(){
+  const nameInput = document.getElementById("newCategoryName");
+  const btnAdd    = document.getElementById("addCategoryBtn");
+  if (!nameInput || !btnAdd) {
+    console.warn("⚠️ newCategoryName ou addCategoryBtn não encontrados no DOM.");
+    return;
+  }
+
+  // Substitui o botão por um clone para limpar event listeners antigos
+  btnAdd.replaceWith(btnAdd.cloneNode(true));
+  const btnAddFresh = document.getElementById("addCategoryBtn");
+
+  btnAddFresh.addEventListener("click", addCategory);
+  nameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); addCategory(); }
+  });
+  btnAddFresh.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); addCategory(); }
+  });
+}
+
+// Garante que os listeners são ligados quando o DOM estiver pronto
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    wireCategoryControls();
+  });
+} else {
+  wireCategoryControls();
+}
+
+// ===== Adicionar TAREFA =====
+addTaskBtn?.addEventListener("click", () => {
+  if (data.categories.length === 0) {
+    alert("Primeiro crie uma categoria na barra lateral para adicionar tarefas.");
+    newCategoryNameInput?.focus();
+    return;
+  }
   const today = new Date();
   taskLabelInput.value = "";
-  const s = nearestMonday(today);
+  const s = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   taskStartInput.value = ymd(s);
   taskEndInput.value   = ymd(new Date(s.getTime() + 14*MS_DAY));
   taskColorSel.value   = "bar1";
   taskLinkInput.value  = "";
-  taskDialog.showModal();
+  const options = data.categories.map((c, idx) => `<option value="${idx}">${escapeHtml(c.title)}</option>`).join("");
+  taskCategorySel.innerHTML = options;
+  openDialog(taskDialog);
 });
-submitTaskBtn.addEventListener("click", (ev) => {
+submitTaskBtn?.addEventListener("click", (ev) => {
   ev.preventDefault();
   const categoryIndex = parseInt(taskCategorySel.value, 10);
   const label = taskLabelInput.value.trim();
@@ -672,46 +689,41 @@ submitTaskBtn.addEventListener("click", (ev) => {
   const end   = taskEndInput.value;
   const color = taskColorSel.value;
   const link  = (taskLinkInput.value || "").trim();
-  if(!label || !start || !end){ return; }
+  if(!label || !start || !end || Number.isNaN(categoryIndex)){ return; }
   addNewTask({categoryIndex, label, start, end, color, link});
-  taskDialog.close();
+  closeDialog(taskDialog);
 });
 
-// Editar TAREFA (duplo clique)
-confirmEditTaskBtn.addEventListener("click", (ev) => {
+// ===== Editar TAREFA =====
+confirmEditTaskBtn?.addEventListener("click", (ev) => {
   ev.preventDefault();
   if(!editingTaskId) return;
   const x = findTaskById(editingTaskId);
   if(!x) return;
-  x.task.label = editTaskLabelInput.value.trim() || x.task.label;
-  x.task.color = editTaskColorSel.value || x.task.color;
-  x.task.link  = (editTaskLinkInput.value || "").trim();
+  const newLabel = editTaskLabelInput.value.trim();
+  const newStart = editTaskStartInput.value;
+  const newEnd   = editTaskEndInput.value;
+  const newColor = editTaskColorSel.value;
+  const newLink  = (editTaskLinkInput.value || "").trim();
+
+  if (newLabel) x.task.label = newLabel;
+  if (newColor) x.task.color = newColor;
+  x.task.link = newLink;
+
+  if (newStart && newEnd) {
+    let s = toDate(newStart), e = toDate(newEnd);
+    if (e < s) { const tmp = s; s = e; e = tmp; }
+    x.task.start = ymd(s);
+    x.task.end   = ymd(e);
+  }
+
   editingTaskId = null;
   saveState(); render();
-  editTaskDialog.close();
-});
-
-// Adicionar MARCO
-addMilestoneBtn.addEventListener("click", () => {
-  const today = new Date();
-  msLabelInput.value = "";
-  msDateInput.value  = ymd(nearestMonday(today));
-  msColorSel.value   = "bar4";
-  milestoneDialog.showModal();
-});
-submitMilestoneBtn.addEventListener("click", (ev) => {
-  ev.preventDefault();
-  const categoryIndex = parseInt(msCategorySel.value, 10);
-  const label = msLabelInput.value.trim();
-  const date  = msDateInput.value;
-  const color = msColorSel.value;
-  if(!label || !date) return;
-  addNewMilestone({ categoryIndex, label, date, color });
-  milestoneDialog.close();
+  closeDialog(editTaskDialog);
 });
 
 // Modo remover (toggle)
-removeModeBtn.addEventListener("click", () => {
+removeModeBtn?.addEventListener("click", () => {
   removeMode = !removeMode;
   removeModeBtn.textContent = removeMode ? "Remover (ativo)" : "Remover item";
   removeModeBtn.classList.toggle("primary", removeMode);
@@ -728,84 +740,54 @@ categoryList.addEventListener("click", (e) => {
   }
 });
 
-// ====== Adicionar categoria (corrigido/garantido) ======
-if (addCategoryBtn) {
-  addCategoryBtn.addEventListener("click", () => {
-    const name = (newCategoryNameInput?.value || "").trim();
-    if (!name) return;
-    data.categories.push({ title: name, tasks: [], milestones: [] });
-    newCategoryNameInput.value = "";
-    saveState();
-    render();
-  });
+// Dropdown de tarefas por categoria
+categoryList.addEventListener("change", (e) => {
+  const sel = e.target.closest(".cat-task-select");
+  if (!sel) return;
+  const taskId = sel.value;
+  if (!taskId) return;
+
+  const found = findTaskById(taskId);
+  if (!found) return;
+
+  const t = found.task;
+  const url = (t.link || "").trim();
+  if (url) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  } else {
+    const bar = grid.querySelector(`.task-bar[data-id="${taskId}"]`);
+    if (bar) {
+      const gr = grid.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
+      const dx = (barRect.left - gr.left) - 60;
+      grid.scrollLeft += dx;
+      bar.style.outline = "2px solid var(--accent)";
+      setTimeout(()=> bar.style.outline = "", 800);
+    }
+  }
+  sel.value = "";
+});
+
+// ===== Fallback para <dialog> =====
+const supportsDialog = typeof HTMLDialogElement === "function" && typeof taskDialog?.showModal === "function";
+function openDialog(d){ supportsDialog ? d.showModal() : d.classList.add("open"); }
+function closeDialog(d){ supportsDialog ? d.close()     : d.classList.remove("open"); }
+
+// ========= Utilitários =========
+function colorToHex(name){
+  const map = {
+    bar1: getComputedStyle(document.documentElement).getPropertyValue('--bar1').trim(),
+    bar2: getComputedStyle(document.documentElement).getPropertyValue('--bar2').trim(),
+    bar3: getComputedStyle(document.documentElement).getPropertyValue('--bar3').trim(),
+    bar4: getComputedStyle(document.documentElement).getPropertyValue('--bar4').trim(),
+    bar5: getComputedStyle(document.documentElement).getPropertyValue('--bar5').trim(),
+  };
+  return map[name] || map.bar1;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// ====== Resize do grid arrastando em área vazia ======
-function isEmptyGridArea(target){
-  if (target.closest(".task-bar") || target.closest(".milestone")) return false;
-  return target.closest(".gantt-grid") !== null;
-}
-grid.addEventListener("mousemove", (e) => {
-  const onEmpty = isEmptyGridArea(e.target);
-  grid.classList.toggle("resize-ready", onEmpty);
-});
-grid.addEventListener("mouseleave", () => { grid.classList.remove("resize-ready"); });
-grid.addEventListener("mousedown", (e) => {
-  if (!isEmptyGridArea(e.target)) return;
-  if (e.button !== 0) return;
-
-  const startY = e.clientY;
-  const startExtra = view.extraH || 0;
-  const rowH = getRowH();
-  const baseHeight = (data.categories.length * rowH) + 24;
-
-  grid.classList.add("resize-ready");
-
-  function onMove(ev){
-    const deltaY = ev.clientY - startY;
-    let desired = baseHeight + Math.max(0, startExtra + deltaY);
-    desired = Math.min(desired, MAX_TOTAL_HEIGHT_PX);
-    view.extraH = Math.max(0, desired - baseHeight);
-    grid.style.height = `${desired}px`;
-  }
-  function onUp(){
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-    grid.classList.remove("resize-ready");
-    saveState();
-    render();
-  }
-  document.addEventListener("mousemove", onMove);
-  document.addEventListener("mouseup", onUp);
-});
-
-// ====== Redimensionar o grid pela alça inferior ======
-gridResizer.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  const startY = e.clientY;
-  const startExtra = view.extraH || 0;
-  const rowH = getRowH();
-  const baseHeight = (data.categories.length * rowH) + 24;
-
-  function onMove(ev){
-    const delta = ev.clientY - startY;
-    let desired = baseHeight + Math.max(0, startExtra + delta);
-    desired = Math.min(desired, MAX_TOTAL_HEIGHT_PX);
-    view.extraH = Math.max(0, desired - baseHeight);
-    grid.style.height = `${desired}px`;
-  }
-  function onUp(){
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-    saveState();
-    render();
-  }
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
-});
-
-// Aplica tema atual (mesmo se não houver botão)
+// Inicializa tema e desenha
 setTheme(currentTheme);
-
-// Primeira render
 render();
