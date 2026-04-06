@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Trainings</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="https://companieslogo.com/img/orig/SUN.SW-e89881ba.png?t=1720244494">
+</head>
+<body class="theme-dark">
+  <!-- Barra superior -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">SULZER</div>
+      <div class="brand-text">
+        <h1>Training</h1>
+        <p>New teammates</p>
+      </div>
+    </div>
+
+    <!-- TOOLBAR em 2 linhas -->
+    <div class="toolbar">
+      <!-- Linha 1: Controles de visão -->
+      <div class="toolbar-row">
+        <div class="toolbar-group">
+          <label>
+            View start
+            <input type="month" id="startMonth" />
+          </label>
+
+          <label>
+            Months
+            <select id="monthsCount">
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="6">6</option>
+              <option value="12" selected>12</option>
+            </select>
+          </label>
+
+          <label>
+            Zoom (week width)
+            <input type="range" id="zoomSlider" min="40" max="96" value="64" />
+          </label>
+
+          <label>
+            Row height
+            <input type="range" id="rowHeightSlider" min="40" max="120" value="68" />
+            <span id="rowHeightValue">68 px</span>
+          </label>
+
+          <button id="themeToggleBtn" class="button" type="button">🌙</button>
+
+          <a id="applyView" class="btn primary" href="index.html" role="button">View Dashboard</a>
+        </div>
+      </div>
+
+      <!-- Linha 2: Ações -->
+      <div class="toolbar-row">
+        <div class="toolbar-group">
+          <button id="addTaskBtn" class="btn" type="button">Add Task</button>
+          <button id="removeModeBtn" class="btn danger" type="button" title="Remove mode: click an item to delete">Remove item</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  
+  <!-- <p class="ia"><strong>Meet Gustave AI:</strong> you can use it to help with your learning. <a href="https://m365.cloud.microsoft:443/chat/?titleId=T_8995ca65-c0f6-c528-0000-d7a4a9671f4f&source=embedded-builder" target="_blank" class="gustave">Click here</a></p> -->
+  <!-- Conteúdo principal -->
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="card">
+        <h3>Modules</h3>
+        <ul id="categoryList" class="category-list"></ul>
+        <div class="add-cat-row">
+          <input id="newCategoryName" type="text" placeholder="New module..." />
+          <label class="mini-label" title="Module color">
+           
+            <select id="newCategoryColor" aria-label="Module color">
+              <option value="bar1">Yellow</option>
+              <option value="bar2">Green</option>
+              <option value="bar3">Orange</option>
+              <option value="bar4" selected>Blue</option>
+              <option value="bar5">Pink</option>
+            </select>
+          </label>
+          <!-- type="button" impede submit/reload -->
+          <button id="addCategoryBtn" class="btn" type="button">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Display Options</h3>
+        <label class="switch">
+          <input type="checkbox" id="toggleTodayLine" checked />
+          <span>Show today line</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="toggleAltRows" checked />
+          <span>Alternate row stripes</span>
+        </label>
+      </div>
+    </aside>
+
+    <section class="board">
+      <!-- Cabeçalho de tempo -->
+      <div id="time-header" class="time-header"></div>
+
+      <!-- Grid quadriculado -->
+      <section id="gantt-grid" class="gantt-grid">
+        <div id="today-line" class="today-line" aria-hidden="true"></div>
+        <div id="grid-resizer" class="grid-resizer" title="Drag to adjust height"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <small>
+      Each task gets its own line. Add tasks to create new lines.
+      Drag to move (vertical/horizontal); edges (↔) to resize;
+      double click to edit; remove mode to delete; ↗ open link in new tab.
+    </small>
+  </footer>
+
+  <!-- Dialog: Adicionar tarefa -->
+  <dialog id="taskDialog">
+    <form method="dialog" id="taskForm" class="task-form">
+      <h3>Add Task</h3>
+      <label>
+        Module:
+        <select id="taskCategory"></select>
+      </label>
+      <label>
+        Name:
+        <input type="text" id="taskLabel" required />
+      </label>
+      <div class="form-row">
+        <label>
+          Start:
+          <input type="date" id="taskStart" required />
+        </label>
+        <label>
+          End:
+          <input type="date" id="taskEnd" required />
+        </label>
+      </div>
+      
+      <label>
+        Link (OneDrive/SharePoint)
+        <input type="url" id="taskLink" placeholder="https://..." />
+      </label>
+      <menu class="form-actions">
+        <button value="cancel" class="btn" type="button" onclick="document.getElementById('taskDialog').close()">Cancel</button>
+        <button id="submitTask" value="default" class="btn primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Editar tarefa -->
+  <dialog id="editTaskDialog">
+    <form method="dialog" id="editTaskForm" class="task-form">
+      <h3>Edit Task</h3>
+      <label>
+        Name:
+        <input type="text" id="editTaskLabel" required />
+      </label>
+      <div class="form-row">
+        <label>
+          Start:
+          <input type="date" id="editTaskStart" required />
+        </label>
+        <label>
+          End:
+          <input type="date" id="editTaskEnd" required />
+        </label>
+      </div>
+      <label>
+        Color:
+        <select id="editTaskColor">
+          <option value="bar1">Yellow</option>
+          <option value="bar2">Green</option>
+          <option value="bar3">Orange</option>
+          <option value="bar4">Blue</option>
+          <option value="bar5">Pink</option>
+        </select>
+      </label>
+      <label>
+        Link (OneDrive/SharePoint)
+        <input type="url" id="editTaskLink" placeholder="https://..." />
+      </label>
+      <menu class="form-actions">
+        <button value="cancel" class="btn" type="button" onclick="document.getElementById('editTaskDialog').close()">Cancel</button>
+        <button id="confirmEditTask" value="default" class="btn primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <div class="toast-area" id="toastArea" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Carregar script ao final do body (DOM pronto) -->
+  <script src="script.js"></script>
+</body>
+</html>

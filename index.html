@@ -1,201 +1,444 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
-  <title>Treinamentos</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Progress Dashboard</title>
   <link rel="icon" type="image/x-icon" href="https://companieslogo.com/img/orig/SUN.SW-e89881ba.png?t=1720244494">
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-2: #f1f5fb;
+      --text: #1c2f4c;
+      --muted: #6d7e96;
+      --accent: #4aa3df;
+      --accent-2: #ffb84d;
+      --danger: #d64444;
+      --radius: 10px;
+      --shadow: 0 8px 24px rgba(0,0,0,.15);
+      --focus: #82b7ff;
+      --transition: 180ms ease;
+      --toast-bg: rgba(18, 30, 46, 0.92);
+    }
+    body.theme-dark {
+      --bg: #0f1b2c;
+      --panel: #111c33;
+      --panel-2: #172540;
+      --text: #e7eef8;
+      --muted: #9cb0c9;
+      --accent: #4aa3df;
+      --accent-2: #ffb84d;
+      --danger: #ef5f5f;
+      --focus: #7d9be2;
+    }
+    body { margin: 0; font-family: "Segoe UI", Roboto, Arial, sans-serif; background: radial-gradient(circle at 20% 50%, var(--bg) 0%, var(--panel-2) 70%, var(--bg) 100%); color: var(--text); transition: background .3s, color .3s; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 12px 14px; }
+    .app-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-radius: var(--radius); background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid rgba(0,0,0,.12); box-shadow: var(--shadow); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon { font-size: 16px; letter-spacing: .06em; font-weight: 900; color: var(--accent); }
+    .brand-text h1 { margin:0; font-size: 1.1rem; white-space: nowrap; }
+    .brand-text p { margin: 2px 0 0; color: var(--muted); font-size: .84rem; }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .button, button { display:inline-flex; align-items:center; justify-content:center; gap:4px; font-size: 13px; font-weight:600; cursor:pointer; border-radius:8px; border:1px solid rgba(255,255,255,.2); background: var(--accent); color:#fff; padding:8px 10px; transition: transform var(--transition), filter var(--transition); }
+    .button:hover, button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .button:focus, button:focus, input:focus, select:focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .toolbar-controls { margin: 10px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:8px; align-items:center; }
+    .toolbar-controls input, .toolbar-controls select { width: 100%; min-height:36px; border-radius: 8px; border: 1px solid #c3d6ec; background: var(--panel); color: var(--text); padding: 0 10px; }
+    .summary { display:flex; flex-wrap:wrap; gap: 8px; margin-bottom: 10px; font-size:13px; color:var(--muted); }
+    .summary .label { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 6px 10px; color: var(--text); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+    .module { background: var(--panel); border:1px solid rgba(74,163,223,.28); border-radius: var(--radius); padding:12px; box-shadow: 0 1px 10px rgba(0,0,0,.08); transition: transform var(--transition), box-shadow var(--transition); }
+    .module:hover { transform: translateY(-2px); box-shadow: 0 4px 18px rgba(0,0,0,.17); }
+    .module .title { display:flex; align-items:center; gap:8px; }
+    .sw { width:12px; height:12px; border-radius:50%; display:inline-block; }
+    .meta { margin:4px 0 0; font-size: 13px; color: var(--muted); min-height: 16px; }
+    .prog { height: 12px; background: #e9f2fb; border-radius:8px; overflow:hidden; margin-top:10px; border:1px solid #c6d6ea; }
+    .fill { height:100%; background: linear-gradient(90deg,#4aa3df,#3a8ccf); }
+    .label-pill { border-radius: 999px; font-size: 12px; background: rgba(74,163,223,.16); padding: 3px 7px; margin-left: 4px; }
+    .toast-area { position: fixed; right: 16px; bottom: 18px; z-index: 999; display: flex; flex-direction: column-reverse; gap: 6px; pointer-events: none; }
+    .toast { min-width: 220px; max-width: 320px; background: var(--toast-bg); border-radius: 9px; color: #fff; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 12px; animation: fadeIn 220ms ease; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+    .sr-only { position:absolute; width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0; }
+    @media (max-width: 800px) { .app-header, .toolbar-controls { flex-direction: column; align-items: stretch; } }
+  </style>
 </head>
-<body class="theme-dark">
-  <!-- Barra superior -->
-  <header class="app-header">
-    <div class="brand">
-      <div class="brand-icon">SULZER</div>
-      <div class="brand-text">
-        <h1>Treinamento</h1>
-        <p>Novos colaboradores</p>
+<body id="appBody" class="theme-dark">
+  <div class="wrap">
+    <header class="app-header" aria-label="dashboard header">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">SULZER</div>
+        <div class="brand-text">
+          <h1 id="dashboard-title">Progress Dashboard</h1>
+          <p id="dashboard-subtitle">Team Training Timeline</p>
+        </div>
       </div>
+      <div class="toolbar">
+        <button id="themeToggleBtn" class="button" aria-label="Toggle theme">🌙</button>
+        <button id="modeToggleBtn" class="button" aria-label="Toggle mode">Advanced edit</button>
+        <button id="tutorialBtn" class="button" aria-label="Start tutorial">Quick tour</button>
+        <a class="button" href="treinamento.html" aria-label="Open Trainings">Open Trainings</a>
+      </div>
+    </header>
+
+    <div class="toolbar-controls" aria-label="dashboard controls">
+      <input id="searchInput" type="search" placeholder="Search modules/tasks..." aria-label="Search modules and tasks">
+      <select id="statusFilter" aria-label="Filter modules by completeness">
+        <option value="all">All modules</option>
+        <option value="done">Completed only</option>
+        <option value="open">Open only</option>
+      </select>
+      <button id="refreshBtn" class="button" aria-label="Refresh dashboard">↻ Refresh</button>
+      <button id="exportBtn" class="button" aria-label="Export JSON/CSV">Export</button>
+      <label class="button" for="importInput" aria-label="Import JSON/CSV">Import</label>
+      <input id="importInput" type="file" accept=".json,.csv,.xlsx" style="display:none;">
     </div>
 
-    <!-- TOOLBAR em 2 linhas -->
-    <div class="toolbar">
-      <!-- Linha 1: Controles de visão -->
-      <div class="toolbar-row">
-        <div class="toolbar-group">
-          <label>
-            Início da visão
-            <input type="month" id="startMonth" />
-          </label>
-
-          <label>
-            Meses
-            <select id="monthsCount">
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="6">6</option>
-              <option value="12" selected>12</option>
-            </select>
-          </label>
-
-          <label>
-            Zoom (largura/semana)
-            <input type="range" id="zoomSlider" min="40" max="96" value="64" />
-          </label>
-
-          <label>
-            Altura da linha
-            <input type="range" id="rowHeightSlider" min="40" max="120" value="68" />
-            <span id="rowHeightValue">68 px</span>
-          </label>
-
-          <button id="themeToggleBtn" class="btn" title="Alternar tema (Claro/Noturno)" aria-pressed="true">🌙</button>
-
-          <button id="applyView" class="btn primary" type="button">Aplicar</button>
-        </div>
-      </div>
-
-      <!-- Linha 2: Ações -->
-      <div class="toolbar-row">
-        <div class="toolbar-group">
-          <button id="addTaskBtn" class="btn" type="button">Adicionar tarefa</button>
-          <button id="removeModeBtn" class="btn danger" type="button" title="Ativa modo remover: clique em qualquer item para apagar">Remover item</button>
-        </div>
-      </div>
+    <div class="summary" id="dashboard-summary" aria-live="polite">
+      <span class="label">Modules: 0</span>
+      <span class="label">Matched: 0</span>
+      <span class="label">Tasks: 0</span>
+      <span class="label">Completed: 0</span>
+      <span class="label">Overall: 0%</span>
     </div>
-  </header>
-  
-  <p class="ia"><strong>Conheça o Gustave IA:</strong> você pode usar ele para ajudar em seus<em> estudos.</em> <a href="https://m365.cloud.microsoft:443/chat/?titleId=T_8995ca65-c0f6-c528-0000-d7a4a9671f4f&source=embedded-builder" target="_blank" class="gustave">Clique aqui</a></p>
-  <!-- Conteúdo principal -->
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="card">
-        <h3>Categorias</h3>
-        <ul id="categoryList" class="category-list"></ul>
-        <div class="add-cat-row">
-          <input id="newCategoryName" type="text" placeholder="Nova categoria..." />
-          <!-- type="button" impede submit/reload -->
-          <button id="addCategoryBtn" class="btn" type="button">Adicionar</button>
-        </div>
-      </div>
 
-      <div class="card">
-        <h3>Opções de Exibição</h3>
-        <label class="switch">
-          <input type="checkbox" id="toggleTodayLine" checked />
-          <span>Mostrar linha do dia</span>
-        </label>
-        <label class="switch">
-          <input type="checkbox" id="toggleAltRows" checked />
-          <span>Listras alternadas nas linhas</span>
-        </label>
-      </div>
-    </aside>
+    <main>
+      <div id="dashboard" class="cards" aria-live="polite" aria-label="modules cards"></div>
+      <p id="no-modules" class="empty" style="display:none">No modules data yet. Add on Trainings page first.</p>
+    </main>
+  </div>
 
-    <section class="board">
-      <!-- Cabeçalho de tempo -->
-      <div id="time-header" class="time-header"></div>
+  <div class="toast-area" id="toastArea"></div>
 
-      <!-- Grid quadriculado -->
-      <section id="gantt-grid" class="gantt-grid">
-        <div id="today-line" class="today-line" aria-hidden="true"></div>
-        <div id="grid-resizer" class="grid-resizer" title="Arraste para aumentar a altura"></div>
-      </section>
-    </section>
-  </main>
+  <script>
+    const STORAGE_KEY = "ganttData_v25";
+    const USER_NAME_KEY = "userName";
+    const THEME_KEY = "theme";
+    const MODE_KEY = "mode";
 
-  <footer class="app-footer">
-    <small>
-      Cada tarefa ocupa sua própria linha. Ao adicionar tarefas, novas linhas aparecem abaixo.
-      Arraste para mover (vertical/horizontal); nas <strong>bordas</strong> (↔) arraste para redimensionar;
-      duplo clique para editar; modo remover apaga; ↗ abre link em nova aba.
-    </small>
-  </footer>
+    const body = document.getElementById("appBody");
+    const themeBtn = document.getElementById("themeToggleBtn");
+    const modeBtn = document.getElementById("modeToggleBtn");
+    const tutorialBtn = document.getElementById("tutorialBtn");
+    const searchInput = document.getElementById("searchInput");
+    const statusFilter = document.getElementById("statusFilter");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const importInput = document.getElementById("importInput");
+    const summaryEl = document.getElementById("dashboard-summary");
+    const toastArea = document.getElementById("toastArea");
 
-  <!-- Dialog: Adicionar tarefa -->
-  <dialog id="taskDialog">
-    <form method="dialog" id="taskForm" class="task-form">
-      <h3>Adicionar Tarefa</h3>
-      <label>
-        Categoria:
-        <select id="taskCategory"></select>
-      </label>
-      <label>
-        Nome:
-        <input type="text" id="taskLabel" required />
-      </label>
-      <div class="form-row">
-        <label>
-          Início:
-          <input type="date" id="taskStart" required />
-        </label>
-        <label>
-          Fim:
-          <input type="date" id="taskEnd" required />
-        </label>
-      </div>
-      <label>
-        Cor:
-        <select id="taskColor">
-          <option value="bar1">Amarelo</option>
-          <option value="bar2">Verde</option>
-          <option value="bar3">Laranja</option>
-          <option value="bar4">Azul</option>
-          <option value="bar5">Rosa</option>
-        </select>
-      </label>
-      <label>
-        Link (OneDrive/SharePoint)
-        <input type="url" id="taskLink" placeholder="https://..." />
-      </label>
-      <menu class="form-actions">
-        <button value="cancel" class="btn" type="button" onclick="document.getElementById('taskDialog').close()">Cancelar</button>
-        <button id="submitTask" value="default" class="btn primary">Salvar</button>
-      </menu>
-    </form>
-  </dialog>
+    function showToast(message, type = "info") {
+      const t = document.createElement("div");
+      t.className = "toast";
+      t.setAttribute("role", "status");
+      t.textContent = message;
+      toastArea.appendChild(t);
+      setTimeout(() => t.remove(), 2800);
+    }
 
-  <!-- Dialog: Editar tarefa -->
-  <dialog id="editTaskDialog">
-    <form method="dialog" id="editTaskForm" class="task-form">
-      <h3>Editar Tarefa</h3>
-      <label>
-        Nome:
-        <input type="text" id="editTaskLabel" required />
-      </label>
-      <div class="form-row">
-        <label>
-          Início:
-          <input type="date" id="editTaskStart" required />
-        </label>
-        <label>
-          Fim:
-          <input type="date" id="editTaskEnd" required />
-        </label>
-      </div>
-      <label>
-        Cor:
-        <select id="editTaskColor">
-          <option value="bar1">Amarelo</option>
-          <option value="bar2">Verde</option>
-          <option value="bar3">Laranja</option>
-          <option value="bar4">Azul</option>
-          <option value="bar5">Rosa</option>
-        </select>
-      </label>
-      <label>
-        Link (OneDrive/SharePoint)
-        <input type="url" id="editTaskLink" placeholder="https://..." />
-      </label>
-      <menu class="form-actions">
-        <button value="cancel" class="btn" type="button" onclick="document.getElementById('editTaskDialog').close()">Cancelar</button>
-        <button id="confirmEditTask" value="default" class="btn primary">Salvar</button>
-      </menu>
-    </form>
-  </dialog>
+    function normalizeTheme(value) {
+      if (!value) return "dark";
+      const l = value.toLowerCase();
+      return (l === "light" || l === "dark") ? l : "dark";
+    }
 
-  <!-- Carregar script ao final do body (DOM pronto) -->
-  <script src="script.js"></script>
+    function applyTheme(theme) {
+      theme = normalizeTheme(theme);
+      body.classList.toggle("theme-dark", theme === "dark");
+      body.classList.toggle("theme-light", theme === "light");
+      themeBtn.textContent = theme === "dark" ? "☀️" : "🌙";
+      themeBtn.title = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+      localStorage.setItem(THEME_KEY, theme);
+    }
+
+    function applyMode(mode) {
+      mode = (mode === "view") ? "view" : "edit";
+      body.dataset.mode = mode;
+      modeBtn.textContent = mode === "view" ? "View only" : "Advanced edit";
+      modeBtn.title = mode === "view" ? "Readonly mode" : "Editable mode";
+      localStorage.setItem(MODE_KEY, mode);
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { categories: [] };
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.categories)) return parsed;
+        if (parsed && parsed.data && Array.isArray(parsed.data.categories)) return parsed.data;
+        return { categories: [] };
+      } catch (error) {
+        console.error("loadData", error);
+        return { categories: [] };
+      }
+    }
+
+    function saveData(dataState) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataState));
+      window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY, newValue: JSON.stringify(dataState)}));
+    }
+
+    function exportJSON() {
+      const dataState = loadData();
+      const blob = new Blob([JSON.stringify(dataState, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `gantt-export-${new Date().toISOString().slice(0,10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast("Exported JSON successfully");
+    }
+
+    function exportCSV() {
+      const data = loadData();
+      const rows = [["module","task","start","end","done","link","comments","attachments"]];
+      (data.categories||[]).forEach(cat => {
+        (cat.tasks||[]).forEach(task => {
+          rows.push([
+            cat.title||"",
+            task.label||"",
+            task.start||"",
+            task.end||"",
+            task.done ? "true" : "false",
+            task.link||"",
+            (task.comments||[]).join(" | "),
+            (task.attachments||[]).join(" | ")
+          ]);
+        });
+      });
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `gantt-export-${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast("Exported CSV successfully");
+    }
+
+    function importFile(file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const txt = ev.target.result;
+        try {
+          let imported;
+          if (file.name.endsWith(".json")) {
+            imported = JSON.parse(txt);
+          } else if (file.name.endsWith(".csv")) {
+            const lines = txt.split(/\r?\n/).filter(Boolean);
+            const headers = lines.shift().split(",");
+            const categories = {};
+            lines.forEach(line => {
+              const cols = line.match(/(".*?"|[^",]+)(?=,|$)/g);
+              if (!cols) return;
+              const row = cols.map(v => v.replace(/^"|"$/g,'').replace(/""/g,'"'));
+              const taskObj = Object.fromEntries(headers.map((h,i)=>[h.trim(), (row[i]||"").trim()]));
+              const module = taskObj.module || "Uncategorized";
+              if (!categories[module]) categories[module] = { title: module, color: "bar4", tasks: [] };
+              categories[module].tasks.push({
+                id: "t" + Math.random().toString(36).slice(2),
+                label: taskObj.task || "",
+                start: taskObj.start || "",
+                end: taskObj.end || "",
+                done: taskObj.done==="true",
+                link: taskObj.link || "",
+                comments: taskObj.comments ? taskObj.comments.split(" | ") : [],
+                attachments: taskObj.attachments ? taskObj.attachments.split(" | ") : [],
+                color: "bar4"
+              });
+            });
+            imported = { categories: Object.values(categories) };
+          } else {
+            showToast("Unsupported file type", "danger");
+            return;
+          }
+          if (imported && imported.categories) {
+            saveData(imported);
+            renderDashboard();
+            showToast("Import successful");
+          } else {
+            showToast("Invalid data format", "danger");
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Import failed", "danger");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function showOnboarding() {
+      const steps = [
+        "Welcome! Start by creating a module in Trainings.",
+        "Then add tasks to that module.",
+        "Drag a task bar to move or resize it.",
+        "Right-click a task to edit details.",
+        "Toggle view/edit mode and filters as needed."
+      ];
+      let idx = 0;
+      const overlay = document.createElement("div");
+      overlay.style = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem;";
+      const card = document.createElement("div");
+      card.style = "max-width:520px;background:#fff;color:#0d1a30;padding:20px;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.4);";
+      const text = document.createElement("p"); text.style.margin="0 0 15px"; card.appendChild(text);
+      const btnNext = document.createElement("button");
+      btnNext.textContent = "Next";
+      btnNext.className = "button";
+      btnNext.addEventListener("click", () => {
+        idx++;
+        if (idx >= steps.length) {
+          document.body.removeChild(overlay);
+          return;
+        }
+        text.textContent = steps[idx];
+      });
+      card.appendChild(btnNext);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+      text.textContent = steps[0];
+      overlay.addEventListener("click", (e)=>{ if(e.target===overlay){document.body.removeChild(overlay);} });
+    }
+
+    function moduleMatchesFilter(module, text, status) {
+      const q = text.trim().toLowerCase();
+      if (q && !module.title.toLowerCase().includes(q) && !(module.description || "").toLowerCase().includes(q)) {
+        return false;
+      }
+      const tasks = Array.isArray(module.tasks) ? module.tasks : [];
+      const total = tasks.length;
+      const done = tasks.filter(t => t.done).length;
+      if (status === "done") return total > 0 && done === total;
+      if (status === "open") return tasks.some(t => !t.done);
+      return true;
+    }
+
+    function renderDashboard() {
+      const state = loadData();
+      const allModules = Array.isArray(state.categories) ? state.categories : [];
+      const filterText = searchInput.value;
+      const filterStatus = statusFilter.value;
+      const modules = allModules.filter(m => moduleMatchesFilter(m, filterText, filterStatus));
+      const totalModules = allModules.length;
+      let totalTasks = 0;
+      let doneTasks = 0;
+      modules.forEach(m => {
+        const tasks = Array.isArray(m.tasks) ? m.tasks : [];
+        totalTasks += tasks.length;
+        doneTasks += tasks.filter(t => t.done).length;
+      });
+
+      const completionPct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+      summaryEl.innerHTML = `
+        <span class="label">Modules: ${totalModules}</span>
+        <span class="label">Matched: ${modules.length}</span>
+        <span class="label">Tasks: ${totalTasks}</span>
+        <span class="label">Completed: ${doneTasks}</span>
+        <span class="label">Overall: ${completionPct}%</span>
+      `;
+
+      const root = document.getElementById("dashboard");
+      root.innerHTML = "";
+      if (!modules.length) {
+        document.getElementById("no-modules").style.display = "block";
+        return;
+      }
+      document.getElementById("no-modules").style.display = "none";
+
+      modules.forEach((c, idx) => {
+        const tasks = Array.isArray(c.tasks) ? c.tasks : [];
+        const total = tasks.length;
+        const done = tasks.filter(t => t.done).length;
+        const pct = total ? Math.round(done / total * 100) : 0;
+        const moduleEl = document.createElement("article");
+        moduleEl.className = "module";
+        moduleEl.setAttribute("role", "button");
+        moduleEl.tabIndex = 0;
+        moduleEl.innerHTML = `
+          <div class="title">
+            <span class="sw" style="background:${esc(c.color || "#4aa3df")}"></span>
+            <div>
+              <div style="font-weight:700;color:var(--text)">${esc(c.title||"Module")}</div>
+              <div class="meta">${esc(c.description || "")}</div>
+            </div>
+          </div>
+          <div class="prog" aria-hidden="true"><div class="fill" style="width:${pct}%"></div></div>
+          <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:var(--muted)">${done} / ${total} tasks</span>
+            <span class="label-pill">${pct}%</span>
+          </div>
+          <div style="margin-top:4px;font-size:11px;color:var(--muted);">Right-click to edit module; task drag/resize in Gantt</div>
+        `;
+        moduleEl.addEventListener("click", ()=>window.location.href = "treinamento.html#module-"+idx);
+        moduleEl.addEventListener("contextmenu", (e)=> {
+          e.preventDefault();
+          const name = prompt("Edit module name", c.title || "");
+          if (name !== null) {
+            c.title = name;
+            saveData(state);
+            renderDashboard();
+            showToast("Module updated");
+          }
+        });
+        moduleEl.addEventListener("keydown", (e)=>{ if (e.key==="Enter"||e.key===" ") moduleEl.click(); });
+        root.appendChild(moduleEl);
+      });
+    }
+
+    function esc(s){ return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+    exportBtn.addEventListener("click", () => {
+      if (confirm("Export format: OK = JSON, Cancel = CSV")) exportJSON();
+      else exportCSV();
+    });
+
+    importInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) importFile(file);
+      importInput.value = "";
+    });
+
+    refreshBtn.addEventListener("click", renderDashboard);
+    searchInput.addEventListener("input", renderDashboard);
+    statusFilter.addEventListener("change", renderDashboard);
+
+    themeBtn.addEventListener("click", () => {
+      const current = normalizeTheme(localStorage.getItem(THEME_KEY));
+      applyTheme(current === "dark" ? "light" : "dark");
+    });
+
+    modeBtn.addEventListener("click", ()=> {
+      const mode = localStorage.getItem(MODE_KEY) === "view" ? "edit" : "view";
+      applyMode(mode);
+      showToast(mode==="view" ? "Read-only mode" : "Advanced edit mode");
+    });
+
+    tutorialBtn.addEventListener("click", showOnboarding);
+
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key.toLowerCase()==="t") { e.preventDefault(); themeBtn.click(); }
+      if (e.ctrlKey && e.key.toLowerCase()==="r") { e.preventDefault(); refreshBtn.click(); }
+      if (e.key === "Escape") showToast("ESC pressed");
+    });
+
+    (function init() {
+      applyTheme(localStorage.getItem(THEME_KEY) || "dark");
+      applyMode(localStorage.getItem(MODE_KEY) || "edit");
+      let userName = localStorage.getItem(USER_NAME_KEY);
+      if (!userName) {
+        userName = prompt("Enter your name:")?.trim() || "User";
+        localStorage.setItem(USER_NAME_KEY, userName);
+      }
+      document.getElementById("dashboard-title").textContent = `Progress Dashboard - ${userName}`;
+      renderDashboard();
+    })();
+
+    window.addEventListener("storage", (ev) => {
+      if (ev.key === STORAGE_KEY || ev.key === "ganttData_lastUpdate") renderDashboard();
+    });
+  </script>
 </body>
 </html>

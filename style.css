@@ -1,3 +1,95 @@
+/* ===== Temas (Navy & White, contraste reforçado no noturno) ===== */
+:root {
+  --bg: #0c1d41;
+  --panel: #12264d;
+  --panel-alt: #162f61;
+  --text: #e8f1ff;
+  --muted: #9ab4d2;
+  --accent: #4aa3df;
+  --accent-2: #24c1a8;
+  --danger: #ff667a;
+  --border: rgba(148, 175, 219, 0.35);
+  --radius: 12px;
+  --shadow: 0 12px 24px rgba(0,0,0,.35);
+}
+
+body {
+  background: linear-gradient(180deg, #0a1836 0%, #09122d 55%, #071023 100%);
+  color: var(--text);
+  transition: background .25s ease, color .25s ease;
+}
+
+.app-header, .card, .module, .toolbar, .app-footer {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 5px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+
+}
+
+.app-header:hover, .card:hover, .module:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 30px rgba(0,0,0,.42);
+}
+
+#themeToggleBtn, .btn, input, select {
+  transition: all .2s ease;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 275px 1fr;
+  gap: 8px; /* aumentei o gap para mais espaço entre sidebar e board */
+  padding: 24px; /* aumentei o padding para mais espaço nas bordas */
+}
+
+@media (max-width: 1024px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { order: 2; }
+  .board { order: 1; }
+}
+
+@media (max-width: 680px) {
+  .toolbar-row, .toolbar-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .toolbar-row label { width: 100%; }
+}
+
+.toast-area {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: 220px;
+  max-width: 280px;
+  background: rgba(7, 11, 26, 0.92);
+  border: px solid rgba(137, 187, 255, 0.5);
+  border-radius: 9px;
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 13px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.6);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: toast-in .28s ease forwards;
+}
+
+.toast.info { border-color: #4aa3df; }
+.toast.success { border-color: #24c1a8; }
+.toast.warning { border-color: #ffb34d; }
+.toast.danger { border-color: #ff667a; }
+
+@keyframes toast-in {
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* ===== Temas (Navy & White, contraste reforçado no noturno) ===== */
 :root{
@@ -23,7 +115,52 @@
   --line:#d0dceb; --line-rgb:208,220,235;
   --text:#0b2340; --text-strong:#0b2340; --text-muted:#516579;
   --accent:#0b5fb3; --danger:#c54646;
-  --bar1:#f3c969; --bar2:#86d357; --bar3:#f59b7c; --bar4:#5ab9e3; --bar5:#ff6ea3;
+  --bar1:#f3c969; --bar2:#86d357; --bar3:#f59b7c; --bar4:#5abae38a; --bar5:#ff6ea3;
+}
+
+/* Forçar fundo branco total no tema claro */
+html.theme-light, body.theme-light {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: #111827;
+}
+
+/* Garantir que os painéis/contêineres sejam opacos (sem translucidez) */
+.theme-light .app-header,
+.theme-light .sidebar .card,
+.theme-light .board,
+.theme-light .gantt-grid,
+.theme-light .time-header,
+.theme-light .task-form,
+.theme-light dialog {
+  background-color: #ffffff !important;
+  color: inherit;
+  box-shadow: none !important;
+  border-color: rgba(0,0,0,0.06) !important;
+}
+
+/* Remover gradiente específico do cabeçalho em tema claro */
+.theme-light .app-header {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+.theme-light #startMonth {
+  background-color: rgb(87, 86, 86);
+  color: white;
+}
+/* Ajustar o overlay das linhas da grade para ficar sutil sobre branco */
+.theme-light .gantt-grid::before {
+  background-image:
+    repeating-linear-gradient(to right, rgba(var(--line-rgb),0.6) 0px, rgba(var(--line-rgb),0.6) 1px, transparent 1px, transparent calc(var(--cell-w))),
+    repeating-linear-gradient(to bottom, rgba(var(--line-rgb),0.6) 0px, rgba(var(--line-rgb),0.6) 1px, transparent 1px, transparent var(--row-h));
+}
+
+/* Garantir barras com blend normal e borda leve no fundo branco */
+.theme-light .task-bar {
+  mix-blend-mode: normal !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04) !important;
+  border: 1px solid rgba(0,0,0,0.04);
 }
 
 *{box-sizing:border-box}
@@ -86,7 +223,7 @@ input:-webkit-autofill, select:-webkit-autofill{
   border:1px solid rgba(255,255,255,0.28);
   padding:6px 10px; border-radius:8px; cursor:pointer;
 }
-.btn.primary{ border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent) inset; }
+.btn.primary{text-decoration: none; border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent) inset; }
 .btn.danger{  border-color:var(--danger); }
 
 /* ===== Sliders (faixa e 'thumb') — BLOCO CORRIGIDO ===== */
@@ -155,7 +292,7 @@ input[type="range"]::-ms-thumb{
   color:var(--text);
 }
 .card h3{ margin:0 0 8px; color:var(--text-strong); }
-.add-cat-row{ display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px; }
+.add-cat-row{ display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:30px; }
 .add-cat-row input::placeholder{ color:var(--text-muted); }
 
 .switch{
@@ -189,6 +326,7 @@ input[type="range"]::-ms-thumb{
   background:rgba(255,255,255,0.12);
   border:1px solid rgba(255,255,255,0.28);
   border-radius:12px 12px 0 0; overflow:hidden; color:var(--text-strong);
+  margin-left: 0px;
 }
 .month-row, .week-row{ display:grid; align-items:center; border-bottom:1px solid var(--line); }
 .month-cell, .week-cell{
@@ -201,6 +339,7 @@ input[type="range"]::-ms-thumb{
   position:relative; overflow:auto; background:rgba(255,255,255,0.10);
   border:1px solid rgba(255,255,255,0.28); border-top:none; border-radius:0 0 12px 12px;
   min-height:50vh; /* metade da tela */
+  margin-left: 0px;
 }
 .gantt-grid::before{
   content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
@@ -298,4 +437,290 @@ dialog.open{
 .ia a {
   text-decoration: none;
   color: white;
+}
+
+/* Sidebar / módulos: truncamento elegante e caixa de tarefas rolável */
+.sidebar .card .module-item {
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.02);
+  box-shadow: none;
+  display: block;
+}
+
+/* Cabeçalho do módulo: título à esquerda, ações à direita */
+.sidebar .card .module-item .module-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Título do módulo: uma linha com elipse */
+.sidebar .card .module-item .category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px; /* ajuste conforme sua sidebar */
+  font-weight: 700;
+}
+
+/* swatch pequeno e consistente */
+.sidebar .card .category-swatch {
+  width: 12px;
+  height: 12px;
+  display:inline-block;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.12);
+  flex: 0 0 auto;
+}
+
+/* ações do módulo (select + botão) */
+.sidebar .card .module-actions {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex: 0 0 auto;
+}
+.sidebar .card .module-actions select {
+  max-width: 150px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Lista de tarefas: área limitada com rolagem, tarefas compactas */
+.sidebar .card .module-item .module-tasks {
+  margin-top: 6px;
+  padding-left: 4px;
+  max-height: 120px; /* evita estourar a sidebar */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Cada linha de tarefa: checkbox + label com truncamento */
+.sidebar .card .sidebar-task-row {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding: 4px 0;
+}
+.sidebar .card .task-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px; /* ajuste conforme necessário */
+  display: inline-block;
+}
+
+/* Marca visual quando concluída */
+.sidebar .card .task-label.done {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* melhora visual do scroll interno (opcional) */
+.sidebar .card .module-tasks::-webkit-scrollbar { height:6px; width:8px; }
+.sidebar .card .module-tasks::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius:6px; }
+
+/* Collapsible modules in sidebar */
+.sidebar .card .module-item { border-radius:8px; padding:8px; margin-bottom:10px; background: rgba(255,255,255,0.02); }
+.sidebar .card .module-head { display:flex; align-items:center; gap:8px; }
+.sidebar .card .module-toggle {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size:20px;
+  cursor: pointer;
+  width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:6px;
+}
+.sidebar .card .module-toggle:focus { outline: 2px solid rgba(74,163,223,0.25); }
+.sidebar .card .module-toggle .caret { display:inline-block; transition: transform .18s ease; }
+
+/* rotate caret when expanded */
+.module-item:not(.collapsed) .module-toggle .caret { transform: rotate(90deg); }
+
+/* hide tasks when collapsed */
+.module-item.collapsed .module-tasks { display: none; }
+
+/* preserve earlier truncation rules for title and tasks */
+.sidebar .card .module-item .category-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; display:inline-flex; align-items:center; gap:8px; font-weight:700; }
+.sidebar .card .module-item .module-tasks { margin-top:6px; padding-left:4px; max-height:120px; overflow-y:auto; }
+/* Melhor layout para "Novo módulo / Cor" */
+.sidebar .card .add-module {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center; /* centraliza horizontalmente */
+  width: 100%;
+  margin-top: 10px;
+}
+.sidebar .card .add-module input#newCategoryName {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: transparent;
+  color: inherit;
+}
+
+/* Centraliza a bolinha/quadrado da cor no seu contêiner */
+.sidebar .card .add-module .color-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+/* Quadrado da cor: centraliza conteúdo e mostra apenas um ponto branco central */
+.sidebar .card .add-module select#newCategoryColor,
+.sidebar .card .add-module input[type="color"]#newCategoryColor {
+  width: 44px;
+  height: 36px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-appearance: none;
+  appearance: none;
+  background-clip: padding-box;
+  color: #fff; /* mantém o ponto branco */
+}
+
+/* Botão de adicionar ocupa linha abaixo e fica centralizado/visível */
+.sidebar .card .add-module-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Remove qualquer label visível "Cor" e centraliza os controles do add-module */
+.sidebar .card label[for="newCategoryColor"],
+.sidebar .card .color-label {
+  display: none !important;
+}
+
+/* Centralizar o conjunto (input + cor + botão abaixo) */
+.sidebar .card .add-module {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center; /* centraliza horizontalmente */
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Input ocupa o espaço disponível, mantendo o conjunto centrado */
+.sidebar .card .add-module input#newCategoryName {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: transparent;
+  color: inherit;
+}
+
+/* Centraliza a bolinha/quadrado da cor no seu contêiner */
+.sidebar .card .add-module .color-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+/* Quadrado da cor: centraliza conteúdo e mostra apenas um ponto branco central */
+.sidebar .card .add-module select#newCategoryColor,
+.sidebar .card .add-module input[type="color"]#newCategoryColor {
+  width: 44px;
+  height: 36px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-appearance: none;
+  appearance: none;
+  background-clip: padding-box;
+  color: #fff; /* mantém o ponto branco */
+}
+
+/* Botão de adicionar ocupa linha abaixo e fica centralizado/visível */
+.sidebar .card .add-module-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+/* comportamento em telas estreitas */
+@media (max-width:420px) {
+  .sidebar .card .add-module { flex-direction: column; align-items: stretch; }
+  .sidebar .card .add-module .color-wrap { justify-content: flex-end; }
+  .sidebar .card .add-module select#newCategoryColor { width: 56px; }
+}
+
+/* Visual para tarefas concluídas no grid */
+.task-bar.task-done {
+  opacity: 0.85;
+  filter: grayscale(40%);
+}
+
+.task-bar.task-done .bar-label {
+  text-decoration: line-through;
+  color: rgba(255, 255, 255, 0.9); /* ajuste para contraste em tema escuro */
+}
+
+/* Ajuste para tema claro, se aplicável */
+.theme-light .task-bar.task-done .bar-label {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* linha diagonal (opcional) — comentada; remova comentário se quiser overlay visual)
+.task-bar.task-done::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  border-top: 2px solid rgba(255,255,255,0.18);
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+*/
+
+#themeToggleBtn {
+  background: transparent !important;
+  border: none !important;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  color: var(--text, #fff);
+  cursor: pointer;
+}
+.sidebar .card .module-item {
+  cursor: pointer;
+  min-width: 260px;   /* mesmo mínimo do grid index */
+  max-width: 100%;    /* não extrapolar */
+}
+
+.sidebar .card .module-item .module-head {
+  cursor: pointer;
+}
+
+/* itens de tarefa também podem ter ponteiro */
+.sidebar .card .sidebar-task-row {
+  cursor: pointer;
 }
